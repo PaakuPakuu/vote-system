@@ -43,14 +43,14 @@ contract Voting is Ownable(msg.sender) {
     }
 
     event VoterRegistered(address voterAddress);
-    event WorkflowStatusChange(WorkflowStatus previousStatus, WorkflowStatus newStatus);
+    event WorkflowStatusChanged(WorkflowStatus previousStatus, WorkflowStatus newStatus);
     event ProposalRegistered(uint proposalId);
     event Voted(address voter, uint proposalId);
 
     /**
     * @notice Vérifie si l'utilisateur est enregistré
     */
-    modifier isWhitelisted() {
+    modifier isRegistered() {
         require(whitelist[msg.sender].isRegistered, "Not authorized");
         _;
     }
@@ -72,33 +72,56 @@ contract Voting is Ownable(msg.sender) {
         emit VoterRegistered(voterAddress);
     }
 
-    /**
-    * @notice Passe à l'étape suivante si possible
-    */
-    function takeNextStep() external onlyOwner {
-        if (currentStatus == WorkflowStatus.RegisteringVoters && voterCount == 0) {
-            revert("Need more voters to take the next step");
-        }
+    function StartProposalsRegistration() external onlyOwner {
+        require(currentStatus == WorkflowStatus.ProposalsRegistrationStarted, "Proposals registration has already started");
+        require(currentStatus > WorkflowStatus.RegisteringVoters, "Proposals registration is no longer possible");
+        require(voterCount > 0, "Need more voters to start proposals registration");
 
-        if (currentStatus == WorkflowStatus.ProposalsRegistrationStarted && proposalCount == 0) {
-            revert("Need more proposals to take the next step");
-        }
+        currentStatus = WorkflowStatus.ProposalsRegistrationStarted;
+        emit WorkflowStatusChanged(WorkflowStatus.RegisteringVoters, currentStatus);
+    }
 
-        if (currentStatus == WorkflowStatus.VotesTallied) {
-            revert("Can't go further");
-        }
+    function EndProposalsRegistration() external onlyOwner {
+        require(currentStatus < WorkflowStatus.ProposalsRegistrationStarted, "Proposals registration has not started yet");
+        require(currentStatus == WorkflowStatus.ProposalsRegistrationEnded, "Proposals registration has already ended");
+        require(currentStatus > WorkflowStatus.ProposalsRegistrationEnded, "Proposals registration is already passed");
+        require(proposalCount > 0, "Need more proposals to stop proposals registration");
+
+        currentStatus = WorkflowStatus.ProposalsRegistrationEnded;
+        emit WorkflowStatusChanged(WorkflowStatus.ProposalsRegistrationStarted, currentStatus);
+    }
+
+    function StartVotingSession() external onlyOwner {
+        require(currentStatus < WorkflowStatus.ProposalsRegistrationEnded, "Need more steps before starting voting session");
+        require(currentStatus == WorkflowStatus.VotingSessionStarted, "Voting session has already started");
+        require(currentStatus > WorkflowStatus.VotingSessionStarted, "Start voting session is no longer possible");
         
-        WorkflowStatus previousStatus = currentStatus;
-        currentStatus = WorkflowStatus(uint(currentStatus) + 1);
+        currentStatus = WorkflowStatus.VotingSessionStarted;
+        emit WorkflowStatusChanged(WorkflowStatus.ProposalsRegistrationEnded, currentStatus);
+    }
 
-        emit WorkflowStatusChange(previousStatus, currentStatus);
+    function EndVotingSession() external onlyOwner {
+        require(currentStatus < WorkflowStatus.VotingSessionStarted, "Voting session has not started yet");
+        require(currentStatus == WorkflowStatus.VotingSessionEnded, "Voting session has already ended");
+        require(currentStatus > WorkflowStatus.VotingSessionEnded, "Voting session is already passed");
+        
+        currentStatus = WorkflowStatus.VotingSessionEnded;
+        emit WorkflowStatusChanged(WorkflowStatus.VotingSessionStarted, currentStatus);
+    }
+
+    function CountVotes() external onlyOwner {
+        require(currentStatus < WorkflowStatus.VotingSessionEnded, "Need more steps before counting votes");
+        require(currentStatus == WorkflowStatus.VotesTallied, "Votes are already counted");
+
+        currentStatus = WorkflowStatus.VotesTallied;
+        emit WorkflowStatusChanged(WorkflowStatus.VotingSessionEnded, currentStatus);
     }
 
     /**
     * @notice Enregistre une proposition
     * @param description Intitulé de la proposition
     */
-    function registerProposal(string calldata description) external isWhitelisted {
+    function registerProposal(string calldata description) external isRegistered {
         require(currentStatus == WorkflowStatus.ProposalsRegistrationStarted, "Can't register any proposal for the moment");
 
         Proposal memory proposal;
@@ -115,7 +138,7 @@ contract Voting is Ownable(msg.sender) {
     * @notice Prend un compte le vote d'un utilisateur pour une proposition
     * @param proposalId Identifiant de la proposition
     */
-    function vote(uint proposalId) external isWhitelisted {
+    function vote(uint proposalId) external isRegistered {
         require(currentStatus == WorkflowStatus.VotingSessionStarted, "Can't vote for the moment");
         require(!whitelist[msg.sender].hasVoted, "You already voted for this vote session");
 
