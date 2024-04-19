@@ -31,7 +31,7 @@ contract Voting is Ownable(msg.sender) {
     mapping (address => Voter) private whitelist;
     uint private voterCount;
 
-    mapping (uint => Proposal) private proposals;
+    mapping (uint => Proposal) public proposals;
     uint private proposalCount;
 
     uint private winnerProposal;
@@ -73,7 +73,7 @@ contract Voting is Ownable(msg.sender) {
     }
 
     /**
-    * @notice Passe à l'étape suivant si possible
+    * @notice Passe à l'étape suivante si possible
     */
     function takeNextStep() external onlyOwner {
         if (currentStatus == WorkflowStatus.RegisteringVoters && voterCount == 0) {
@@ -96,7 +96,7 @@ contract Voting is Ownable(msg.sender) {
 
     /**
     * @notice Enregistre une proposition
-    * @param description Description de la proposition
+    * @param description Intitulé de la proposition
     */
     function registerProposal(string calldata description) external isWhitelisted {
         require(currentStatus == WorkflowStatus.ProposalsRegistrationStarted, "Can't register any proposal for the moment");
