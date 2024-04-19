@@ -3,31 +3,31 @@ pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-struct Voter {
-    bool isRegistered;
-    bool hasVoted;
-    uint votedProposalId;
-}
-
-struct Proposal {
-    string description;
-    uint voteCount;
-}
-
-enum WorkflowStatus {
-    RegisteringVoters,
-    ProposalsRegistrationStarted,
-    ProposalsRegistrationEnded,
-    VotingSessionStarted,
-    VotingSessionEnded,
-    VotesTallied
-}
-
 /**
 * @title Vote system
 * @author Jordan Hereng
 */
 contract Voting is Ownable(msg.sender) {
+    struct Voter {
+        bool isRegistered;
+        bool hasVoted;
+        uint votedProposalId;
+    }
+
+    struct Proposal {
+        string description;
+        uint voteCount;
+    }
+
+    enum WorkflowStatus {
+        RegisteringVoters,
+        ProposalsRegistrationStarted,
+        ProposalsRegistrationEnded,
+        VotingSessionStarted,
+        VotingSessionEnded,
+        VotesTallied
+    }
+
     mapping (address => Voter) private whitelist;
     uint private voterCount;
 
@@ -105,9 +105,9 @@ contract Voting is Ownable(msg.sender) {
         proposal.description = description;
         proposal.voteCount = 0;
 
-        proposals[proposalCount] = proposal;
+        proposals[proposalCount + 1] = proposal;
 
-        emit ProposalRegistered(proposalCount);
+        emit ProposalRegistered(proposalCount + 1);
         proposalCount++;
     }
 
@@ -123,7 +123,7 @@ contract Voting is Ownable(msg.sender) {
         whitelist[msg.sender].hasVoted = true;
         whitelist[msg.sender].votedProposalId = proposalId;
 
-        if (proposalCount == 0 || proposals[proposalId].voteCount > proposals[winnerProposal].voteCount) {
+        if (proposals[proposalId].voteCount > proposals[winnerProposal].voteCount) {
             winnerProposal = proposalId;
         }
 
@@ -135,6 +135,7 @@ contract Voting is Ownable(msg.sender) {
     */
     function getWinner() external view returns (Proposal memory) {
         require(currentStatus == WorkflowStatus.VotesTallied, "Can't get the winner for the moment");
+        require(winnerProposal != 0, "No vote has been registered");
         return proposals[winnerProposal];
     }
 }
